@@ -1,26 +1,21 @@
 # Architecture
 
 This repository implements an MCP server for OpenStack clouds. It started as
-`openstack-kr/python-openstackmcp-server` at `eba3e6f` (see `NOTICE`) and is
-being reshaped into a read-only-first server with a bounded, typed tool
-surface. Behaviour is defined in [`docs/SPEC.md`](docs/SPEC.md); this file
-describes how the code is organised to meet it.
-
-Status: target layout for 0.1.0. Until the refactor lands, `src/` still has
-the upstream layout (`tools/*_tools.py`, `tools/response/*`, module-level
-`config.py`).
+`openstack-kr/python-openstackmcp-server` at `eba3e6f` (see `NOTICE`) and was
+reshaped into a read-only-first server with a bounded, typed tool surface.
+Behaviour is defined in [`docs/SPEC.md`](docs/SPEC.md); this file describes
+how the code is organised to meet it.
 
 ## Runtime flow
 
 ```mermaid
 flowchart LR
     Client[MCP client] <-->|stdio or Streamable HTTP| Server[server.py: FastMCP]
-    Server --> Registry[registration: read tools, write tools if gated]
-    Registry --> Scope[scope: project allowlist]
-    Scope --> Cloud[cloud: per-project Connection cache]
+    Server --> Tools[tools: read tables, write tables if gated]
+    Tools --> Cloud[cloud: project allowlist, per-project Connection cache]
     Cloud <-->|openstacksdk, keystoneauth| API[OpenStack APIs]
-    Registry --> Paging[paging: limit+1, envelope, size check]
-    Registry --> Errors[errors: closed categories]
+    Tools --> Paging[paging: limit+1, envelope, size check]
+    Tools --> Errors[errors: closed categories]
 ```
 
 1. `__main__.main()` loads `Settings` from the environment. Invalid
@@ -38,27 +33,29 @@ flowchart LR
 
 | Module | Responsibility |
 | --- | --- |
-| `config` | `Settings`: a frozen dataclass parsed and validated from `OPENSTACK_MCP_*`. No other module reads the environment, except openstacksdk's own loader. |
-| `cloud` | Credential resolution, TLS source, project override (SCOPE-4), per-project `Connection` cache with fixed timeout and no retries. Takes a connection factory so tests inject fakes. |
-| `scope` | Resolves the effective project for a call (SCOPE-2, SCOPE-3) before any authentication. |
-| `paging` | `bounded(iterator, limit)` consumes at most `limit + 1` items; `ListResult[T]` builds the envelope; size check against the response limit (OUT). |
-| `errors` | `ToolFailure(category)`; a single mapper from SDK and keystoneauth exceptions to categories with fixed messages (ERR). |
-| `models/` | Pydantic response models per service, carried over from upstream `tools/response/` and extended with platform models. Field lists are explicit (OUT-6). |
-| `tools/read/` | One module per service. Each function takes typed arguments, resolves scope, calls one SDK list/get operation, and returns a model or `ListResult`. |
-| `tools/write/` | Upstream mutating operations, imported only when write tools are registered. |
-| `registry` | Declares each tool once: name, title, annotations, function. Read and write tables are separate, which makes RO-1 a property of the table rather than of runtime checks. |
-| `server` | Builds the FastMCP instance, instructions, tool/prompt/resource registration, call logging. |
-| `logging` | stderr handler, level, SDK logger caps (LOG). |
+| `config` | `Settings`: a frozen dataclass parsed and validated from `OPENSTACK_MCP_*`. No other module reads server settings from the environment. |
+| `cloud` | `load_cloud()` resolves credentials through openstacksdk's loader (the only reader of `OS_*` and `clouds.yaml`), detects insecure transport and the TLS source. `CaBundle` writes the PEM CA file. `Cloud` resolves the project for a call before authentication (SCOPE-2, -3), builds a per-project configuration with fixed timeouts and no retries (SCOPE-4), caches connections, and checks the token's project. The connection factory is injectable for tests. |
+| `paging` | `bounded()` consumes at most `limit + 1` items; `ListResult[T]` is the list envelope; `check_size()` enforces the byte limit (OUT). |
+| `errors` | `ToolFailure(category)` and `classify()`, the single mapping from SDK, keystoneauth, requests and pydantic exceptions to categories with fixed messages (ERR). |
+| `models/` | Pydantic result models per service, carried over from upstream `tools/response/` and extended with platform models. Unknown attributes are dropped (OUT-6). |
+| `tools/base` | `Registrar`: shared argument fields (project, limit, marker), annotations, the call wrapper (worker thread, error mapping, size check, call log) and rejection of unknown arguments. |
+| `tools/<service>` | `compute`, `image`, `block_storage`, `network`, `platform`. Each has `register_read(reg)` and, except `platform`, `register_write(reg)`. A tool resolves its connection through `Cloud`, makes one named SDK list/get (or, for writes, one mutating) call and returns a model or `ListResult`. |
+| `tools/__init__` | `get_scope`, the scope document, and the read/write tables. Write modules are registered only when both gates are open, so RO-1 is a property of registration rather than a runtime check. |
+| `server` | Builds the FastMCP instance with instructions, tools, and optional prompt and resource. |
+| `log` | stderr handler, level, SDK logger caps (LOG). |
+| `__main__` | Entry point: settings, logging, CA bundle, cloud, transport, signal handling. |
 
 ## Boundaries
 
 - Tool functions never receive a `Connection` from the caller. They ask
-  `cloud` for the connection of the project chosen by `scope`.
+  `Cloud` for the connection of the project it allows.
 - The SDK is called only through named proxy methods listed in the tool
   modules. There is no generic "call SDK method by name" path, so RO-3 and
   RO-4 hold by construction and are checked by tests with recording fakes.
 - Errors cross the MCP boundary only as `ToolFailure`. Any other exception is
-  mapped to `internal` and its text is logged at `DEBUG` without arguments.
+  mapped to a category; only its type name is logged, at `DEBUG`.
+- Tool functions are synchronous (the SDK blocks) and run in a worker thread,
+  so one slow call does not stall other sessions on the HTTP transport.
 
 ## MCP framework
 
@@ -69,13 +66,13 @@ The server uses `FastMCP` from the official `mcp` Python SDK (1.x), as in
 
 ## Testing
 
-- Unit tests use fake connections built from simple objects whose proxy
-  methods are generators and record their calls.
+- Unit tests use fake connections whose proxy methods record their calls and
+  return counting generators, so tests can assert how many items were read.
 - Protocol tests use the SDK's in-memory client session against
   `build_server(...)`, so annotations, schemas, `isError` and registration
   switches are tested as a client sees them.
 - No test contacts a cloud or the network. The image smoke test in CI starts
-  the container with environment-only settings and no credentials.
+  the container with environment-only settings and synthetic credentials.
 
 ## Not implemented
 

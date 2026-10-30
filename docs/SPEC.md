@@ -1,7 +1,7 @@
 # Behaviour Specification
 
-Status: specification for 0.1.0, written before the refactor. Code that
-predates it (upstream `eba3e6f`) does not yet conform. Every requirement has an
+Status: specification for 0.1.0. It was written before the refactor of the
+upstream code (`eba3e6f`) and is implemented by it. Every requirement has an
 ID; tests reference the ID in their name or docstring, and the traceability
 table at the end maps IDs to test modules.
 
@@ -176,12 +176,14 @@ no required command-line argument.
 
 - **TOOL-2** Write tools (admin mode, RO-2) carry over the upstream mutating
   operations under the same naming: server create/update/delete/action and
-  volume attach/detach; volume create/delete/extend; image create/delete;
-  network, subnet, port, router, floating IP and security group
-  create/update/delete; router interface add/remove. Upstream identity writes
-  (regions, domains, projects), `set_port_binding`,
-  `create_floating_ips_bulk` and `assign_first_available_floating_ip` are not
-  carried over (`DECISIONS.md`). Write tools are experimental in 0.1.0.
+  volume attach/detach; volume create/delete/extend; image create (Glance
+  `web-download` import from an `http(s)` URL) and delete; network, subnet,
+  port, router, floating IP and security group create/update/delete; router
+  interface add/remove. Upstream identity writes (regions, domains,
+  projects), `set_port_binding`, `create_floating_ips_bulk`,
+  `assign_first_available_floating_ip`, image creation from a volume and the
+  admin-only network options (`is_shared`, `provider_*`) are not carried over
+  (`DECISIONS.md`). Write tools are experimental in 0.1.0.
 - **TOOL-3** `get_scope` returns, without contacting the cloud: server
   version, mode, whether write tools are registered, `configured` and its
   reason, credential source (`clouds.yaml` entry name or `environment`),
@@ -207,9 +209,11 @@ no required command-line argument.
 - **MCP-4** The server sends `instructions` on initialize: read-only by
   default, call `get_scope` first, how projects and paging work, that
   `forbidden` means a missing role rather than an empty inventory.
-- **MCP-5** Tool failures are returned as results with `isError: true`, not as
-  protocol errors, except for unknown tools and schema validation which the
-  protocol layer reports.
+- **MCP-5** Tool failures, unknown tool names and argument validation errors
+  are returned as results with `isError: true`, not as JSON-RPC errors.
+  Contradictory arguments that the schema cannot express (for example both
+  `port_id` and `disassociate`) fail with `invalid_argument` before any SDK
+  call.
 - **MCP-6** Prompts: the upstream security-group prompt is kept, renamed to
   `find_servers_by_security_group` and updated to the new tool names and
   paging.
@@ -293,17 +297,18 @@ first line of the docstring.
 
 | Requirements | Test module |
 | --- | --- |
-| CFG-1 … CFG-12 | `tests/test_config.py` |
-| CFG-5 … CFG-7, SCOPE-1, SCOPE-4 | `tests/test_cloud.py` |
-| RO-1 … RO-5, MCP-1, MCP-2, MCP-8, TOOL-1, TOOL-2 | `tests/test_surface.py` |
-| SCOPE-2 … SCOPE-5, RO-4 | `tests/test_scope.py` |
+| CFG-6, CFG-8 … CFG-12, RO-2, TR-3 | `tests/test_config.py` |
+| CFG-1, CFG-3, CFG-5 … CFG-7, SCOPE-1, SCOPE-3, SCOPE-4 | `tests/test_cloud.py` |
+| RO-1 … RO-5, MCP-1 … MCP-3, MCP-8, TOOL-1, TOOL-4 | `tests/test_surface.py` |
+| SCOPE-2 … SCOPE-5, RO-4, CFG-3 | `tests/test_scope.py` |
 | OUT-1 … OUT-7 | `tests/test_paging.py` |
-| TOOL-3, MCP-4, MCP-6, MCP-7 | `tests/test_scope_tool.py`, `tests/test_prompts_resources.py` |
-| TOOL-4, OUT-5, OUT-6 per service | `tests/tools/test_<service>.py` (adapted from upstream) |
+| TOOL-3, MCP-4, MCP-6, MCP-7 | `tests/test_scope_tool.py` |
+| TOOL-4, OUT-5, OUT-6 per service | `tests/tools/test_read_models.py` (cases adapted from upstream) |
+| TOOL-2, RO-2, MCP-5 | `tests/tools/test_write.py` |
 | ERR-1 … ERR-3, MCP-5, CFG-4 | `tests/test_errors.py` |
-| TR-1 … TR-4 | `tests/test_transport.py` |
+| PKG-1, CFG-12, TR-1, TR-4 | `tests/test_cli.py` (server as a subprocess) |
+| TR-2 | `tests/test_transport.py` |
 | LOG-1, LOG-2, CFG-4 | `tests/test_logging.py` |
-| PKG-1 | `tests/test_cli.py` |
 | PKG-2 … PKG-5 | CI workflow (`.github/workflows/ci.yml`, `release.yml`) |
 
 Tests never contact a cloud: SDK connections are replaced by fakes that record

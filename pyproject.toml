@@ -1,93 +1,71 @@
 [project]
 name = "openstack-mcp-server"
 version = "0.1.0.dev0"
-description = "A MCP server providing OpenStack services for MCP clients"
+description = "Read-only-first MCP server for OpenStack clouds"
 readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.10"
 dependencies = [
-    "fastmcp>=2.11.3",
-    "openstacksdk>=4.6.0",
-    "pydantic>=2.11.7",
+    "mcp>=1.27,<2",
+    "openstacksdk>=4.6,<5",
+    "keystoneauth1>=5.11,<6",
+    "pydantic>=2.11,<3",
 ]
 
 [project.scripts]
-openstack-mcp-server = "openstack_mcp_server:main"
+openstack-mcp-server = "openstack_mcp_server.__main__:main"
+
+[project.urls]
+Source = "https://github.com/oomchiller/openstack-mcp-server"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
-    "ruff>=0.12.5",
-    "pre-commit>=4.2.0",
-]
-test = [
-    "pytest>=8.4.1",
-    "coverage>=7.0",
-    "pytest-cov>=6.0.0",
+    "ruff>=0.14,<1",
+    "mypy>=1.18,<2",
+    "pytest>=8.4,<9",
+    "pytest-cov>=6,<8",
 ]
 
+[tool.uv]
+# Resolve only releases at least two weeks old; move the date when upgrading.
+exclude-newer = "2026-10-16T00:00:00Z"
 
-[build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools.packages.find]
-where = ["src"]
-
-
-[tool.pytest.ini_options]
-testpaths = [
-    "tests",
-]
-pythonpath = [
-    "src",
-]
-
-python_files = [
-    "test_*.py",
-    "*_test.py",
-]
-python_classes = [
-    "Test*",
-]
-python_functions = [
-    "test_*",
-]
-
+[tool.hatch.build.targets.wheel]
+packages = ["src/openstack_mcp_server"]
 
 [tool.ruff]
-line-length = 79
-exclude = [
-    "docs",
-    "_version.py",
-]
-
-[tool.ruff.format]
-quote-style = "double"
-indent-style = "space"
-line-ending = "auto"
-docstring-code-format = true
+line-length = 88
+target-version = "py310"
 
 [tool.ruff.lint]
-select = [
-    "C",
-    "E",
-    "F",
-    "S",
-    "U",
-    "I",
-]
-ignore = [
-    "C901",
-    "E501",
-]
-
-[tool.ruff.lint.isort]
-lines-after-imports = 2
-lines-between-types = 1
+select = ["E", "F", "W", "I", "B", "S", "UP", "C4", "SIM", "RUF"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = [
-    "S101",
-]
+"tests/*" = ["S101", "S104", "S105", "S106", "S108", "S310", "S603"]
 
-[tool.ruff.lint.pydocstyle]
-convention = "google"
+[tool.mypy]
+python_version = "3.10"
+strict = true
+mypy_path = "src"
+
+[[tool.mypy.overrides]]
+module = ["openstack", "openstack.*", "keystoneauth1", "keystoneauth1.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-p no:cacheprovider"
+
+[tool.coverage.run]
+source = ["openstack_mcp_server"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true
+skip_covered = true
