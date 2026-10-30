@@ -111,7 +111,10 @@ def test_tr_1_stdio_speaks_only_json_rpc() -> None:
     stderr = process.stderr.read() if process.stderr else ""
     replies = [json.loads(line) for line in stdout.splitlines()]
     assert [r["id"] for r in replies] == [1, 2, 3]
-    assert replies[0]["result"]["serverInfo"]["name"] == "openstack-mcp-server"
+    assert replies[0]["result"]["serverInfo"] == {
+        "name": "openstack-mcp-server",
+        "version": __version__,
+    }
     assert "get_scope" in replies[0]["result"]["instructions"]
     names = {tool["name"] for tool in replies[1]["result"]["tools"]}
     assert "list_servers" in names and "delete_server" not in names

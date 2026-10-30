@@ -13,7 +13,7 @@ from openstack_mcp_server.cloud import (
     project_config,
     sdk_connection,
 )
-from openstack_mcp_server.config import Settings
+from openstack_mcp_server.config import ConfigError, Settings
 from openstack_mcp_server.errors import ToolFailure
 
 from .conftest import BASE_CONFIG, CONFIGURED, PROJECT_A, PROJECT_B, SECRET, FakeCloud
@@ -195,3 +195,36 @@ def test_scope_4_real_sdk_connection_uses_explicit_config(
     assert region.config["api_timeout"] == 9
     assert region.get_connect_retries("compute") == 0
     assert region.get_status_code_retries("compute") == 0
+
+
+def test_cfg_6_ca_bundle_falls_back_when_tmp_is_read_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import tempfile
+
+    real = tempfile.mkdtemp
+    parents: list[str | None] = []
+
+    def mkdtemp(prefix: str, dir: str | None = None) -> str:
+        parents.append(dir)
+        if dir is None:
+            raise OSError("read-only file system")
+        return real(prefix=prefix)
+
+    monkeypatch.setattr(tempfile, "mkdtemp", mkdtemp)
+    bundle = CaBundle(PEM)
+    assert parents == [None, "/dev/shm"]
+    bundle.cleanup()
+
+
+def test_cfg_6_ca_bundle_without_writable_directory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import tempfile
+
+    def mkdtemp(prefix: str, dir: str | None = None) -> str:
+        raise OSError("read-only file system")
+
+    monkeypatch.setattr(tempfile, "mkdtemp", mkdtemp)
+    with pytest.raises(ConfigError, match="OPENSTACK_MCP_CACERT_PEM"):
+        CaBundle(PEM)

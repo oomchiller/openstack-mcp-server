@@ -2,6 +2,7 @@
 
 from mcp.server.fastmcp import FastMCP
 
+from . import __version__
 from .cloud import Cloud
 from .tools import register, scope_document
 from .tools.base import Registrar
@@ -29,6 +30,8 @@ def build_server(cloud: Cloud) -> FastMCP:
         log_level=settings.log_level,
         warn_on_duplicate_tools=False,
     )
+    # FastMCP reports the mcp SDK version unless told otherwise.
+    server._mcp_server.version = __version__
     reg = Registrar(server, cloud)
     register(reg)
 

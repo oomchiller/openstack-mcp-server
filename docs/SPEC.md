@@ -40,8 +40,10 @@ no required command-line argument.
   as in openstacksdk.
 - **CFG-6** `OPENSTACK_MCP_CACERT_PEM` carries one or more PEM certificates as
   text. At startup the server writes it to a file created with mode `0600`
-  inside a private `0700` temporary directory, passes that path as the CA
-  bundle and removes it at exit. It takes precedence over `OS_CACERT` and
+  inside a private `0700` temporary directory (`TMPDIR` or `/tmp`, else
+  `/dev/shm` for read-only root file systems), passes that path as the CA
+  bundle and removes it at exit. Without a writable directory it is a startup
+  error (CFG-12). It takes precedence over `OS_CACERT` and
   `cacert`. Text without a `-----BEGIN CERTIFICATE-----` block is a startup
   error (CFG-12).
 - **CFG-7** TLS verification is on. A cloud with `verify: false`, `insecure:

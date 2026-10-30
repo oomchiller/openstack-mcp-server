@@ -34,19 +34,25 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
 
     log.configure(settings.log_level)
-    bundle = CaBundle(settings.cacert_pem) if settings.cacert_pem else None
 
     def stop(signum: int, frame: FrameType | None) -> None:
         raise SystemExit(0)
 
+    # Handlers first, so a signal during startup still reaches the cleanup.
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
+    bundle: CaBundle | None = None
     try:
+        if settings.cacert_pem:
+            bundle = CaBundle(settings.cacert_pem)
         state, base = load_cloud(settings)
         cloud = Cloud(
             settings, state, base, cacert_path=bundle.path if bundle else None
         )
         build_server(cloud).run(transport=settings.transport)
+    except ConfigError as error:
+        print(f"openstack-mcp-server: invalid configuration: {error}", file=sys.stderr)
+        return 2
     except KeyboardInterrupt:
         pass
     finally:

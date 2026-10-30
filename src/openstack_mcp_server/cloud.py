@@ -13,7 +13,7 @@ from keystoneauth1 import exceptions as ks
 from openstack import exceptions as sdk
 from openstack.config.loader import OpenStackConfig
 
-from .config import Settings
+from .config import ConfigError, Settings
 from .errors import ToolFailure
 
 Reason = Literal["missing_credentials", "insecure_transport", "invalid_cloud_config"]
@@ -42,10 +42,14 @@ class CloudState:
 
 
 class CaBundle:
-    """PEM text written to a private file for the lifetime of the process (CFG-6)."""
+    """PEM text written to a private file for the lifetime of the process (CFG-6).
+
+    Containers often run with a read-only root file system; ``/dev/shm`` is
+    tried when the temporary directory is not writable.
+    """
 
     def __init__(self, pem: str) -> None:
-        self._directory = tempfile.mkdtemp(prefix="openstack-mcp-")
+        self._directory = _private_directory()
         self.path = os.path.join(self._directory, "ca.pem")
         descriptor = os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(descriptor, "w", encoding="ascii") as handle:
@@ -53,6 +57,18 @@ class CaBundle:
 
     def cleanup(self) -> None:
         shutil.rmtree(self._directory, ignore_errors=True)
+
+
+def _private_directory() -> str:
+    for parent in (None, "/dev/shm"):  # noqa: S108
+        try:
+            return tempfile.mkdtemp(prefix="openstack-mcp-", dir=parent)
+        except OSError:
+            continue
+    raise ConfigError(
+        "OPENSTACK_MCP_CACERT_PEM",
+        "needs a writable temporary directory (TMPDIR, /tmp or /dev/shm)",
+    )
 
 
 def load_cloud(

@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0 (unreleased)
+## 0.1.0 (2026-10-30)
 
 First release of this fork of `openstack-kr/python-openstackmcp-server` at
 `eba3e6f`.
