@@ -1,0 +1,12 @@
+openstack-mcp-server
+
+Based on openstack-kr/python-openstackmcp-server at eba3e6f
+(https://github.com/openstack-kr/python-openstackmcp-server,
+revision eba3e6f8d2b84ba7337c01f6a0b7a4a9ec951913), Apache-2.0;
+modified by Iwan Mikhajlov.
+
+Upstream history is preserved in this repository; the starting point is
+tagged upstream-eba3e6f. Changes after that tag are listed in git history.
+
+This is a community project, not affiliated with or endorsed by the
+OpenStack project or the OpenInfra Foundation.

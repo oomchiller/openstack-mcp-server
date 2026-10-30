@@ -1,6 +1,6 @@
 [project]
-name = "python-openstackmcp-server"
-dynamic = ["version"]
+name = "openstack-mcp-server"
+version = "0.1.0.dev0"
 description = "A MCP server providing OpenStack services for MCP clients"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -11,13 +11,12 @@ dependencies = [
 ]
 
 [project.scripts]
-python-openstackmcp-server = "openstack_mcp_server:main"
+openstack-mcp-server = "openstack_mcp_server:main"
 
 [dependency-groups]
 dev = [
     "ruff>=0.12.5",
     "pre-commit>=4.2.0",
-    "setuptools-scm>=9.2.0",
 ]
 test = [
     "pytest>=8.4.1",
@@ -27,11 +26,8 @@ test = [
 
 
 [build-system]
-requires = ["setuptools>=61.0", "setuptools-scm"]
+requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
-
-[tool.setuptools_scm]
-write_to = "src/openstack_mcp_server/_version.py"
 
 [tool.setuptools.packages.find]
 where = ["src"]

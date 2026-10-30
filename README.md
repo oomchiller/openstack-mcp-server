@@ -1,4 +1,7 @@
-# python-openstackmcp-server
+# openstack-mcp-server
+
+> Community project, not affiliated with OpenStack/OpenInfra Foundation.
+> Based on [openstack-kr/python-openstackmcp-server](https://github.com/openstack-kr/python-openstackmcp-server) at `eba3e6f` (Apache-2.0); see [NOTICE](NOTICE).
 
 Openstack mcp server is a [Model Context Protocol (MCP)](https://modelcontextprotocol.io/docs/getting-started/intro) server that provides an interface for AI assistants to interact with OpenStack services.
 
@@ -67,7 +70,7 @@ Get started quickly with the OpenStack MCP server using Claude Desktop
        "openstack-mcp-server": {
          "command": "/path/to/your/python",
          "args": [
-           "python-openstackmcp-server"
+           "openstack-mcp-server"
          ],
          "env" : {
            "OS_CLIENT_CONFIG_FILE": "/path/to/your/clouds.yaml"
@@ -85,7 +88,7 @@ Get started quickly with the OpenStack MCP server using Claude Desktop
        "openstack-mcp-server": {
          "command": "uvx",
          "args": [
-           "python-openstackmcp-server"
+           "openstack-mcp-server"
          ],
          "env" : {
            "OS_CLIENT_CONFIG_FILE": "/path/to/your/clouds.yaml"
